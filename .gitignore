@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Large local project assets
+materials/project_part1/data/open_ragbench/
+materials/project_part1/data/processed/*.jsonl
+materials/project_part1/data/rawpdf/
+materials/project_part2/*.npy
+
+# IDE
+.idea/
+.vscode/
+
+# Local env
+.env
+.env.*
+
+# Logs
+*.log

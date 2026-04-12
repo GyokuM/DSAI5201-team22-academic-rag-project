@@ -1,0 +1,7 @@
+Chunking,Embedding,ChunkHit@10
+Fixed,all-MiniLM-L6-v2,0.86
+Fixed,BAAI/bge-base-en-v1.5,0.895
+Recursive,all-MiniLM-L6-v2,0.855
+Recursive,BAAI/bge-base-en-v1.5,0.88
+Section-Aware,all-MiniLM-L6-v2,0.845
+Section-Aware,BAAI/bge-base-en-v1.5,0.88

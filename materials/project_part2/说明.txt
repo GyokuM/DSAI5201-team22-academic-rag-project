@@ -1,0 +1,5 @@
+四个csv文件是 两个模型"all-MiniLM-L6-v2"（轻量级） "BAAI/bge-base-en-v1.5"（中量级）分别在四种top_K值下的chunk命中率
+
+建议是不必使用rerank。
+
+ipynb是RAG的具体实现，剩下的六个文件是三个数据切片向量化的结果

@@ -1,0 +1,21 @@
+{
+  "cleaned_sections": 19816,
+  "fixed": {
+    "num_chunks": 87769,
+    "avg_chunk_chars": 1074.42,
+    "max_chunk_chars": 1200,
+    "min_chunk_chars": 51
+  },
+  "recursive": {
+    "num_chunks": 102471,
+    "avg_chunk_chars": 841.89,
+    "max_chunk_chars": 1200,
+    "min_chunk_chars": 3
+  },
+  "section_aware": {
+    "num_chunks": 99773,
+    "avg_chunk_chars": 864.07,
+    "max_chunk_chars": 1600,
+    "min_chunk_chars": 3
+  }
+}
