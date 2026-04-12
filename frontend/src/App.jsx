@@ -431,7 +431,7 @@ export default function App() {
               </div>
               <div className="note-card">
                 <span className="eyebrow">Part 3</span>
-                <p>Prompt strategy comparison and visualization assets, but evaluation should be rerun against answers.json.</p>
+                <p>Prompt strategy comparison has been rerun against answers.json, and the refreshed summary now feeds this dashboard.</p>
               </div>
             </div>
           </div>
@@ -441,8 +441,8 @@ export default function App() {
               <h2>What You Can Improve Next</h2>
             </div>
             <ol className="ordered-notes">
-              <li>Replace the fallback answer generator with a clean rerun of Part 3.</li>
-              <li>Export stable evaluation JSONL/CSV artifacts from the rerun pipeline.</li>
+              <li>Replace the fallback answer generator with a model-backed generation path.</li>
+              <li>Surface retrieved chunk citations and prompt strategy choices directly in the demo panel.</li>
               <li>Add upload-PDF ingestion after the final baseline demo is stable.</li>
               <li>Use this frontend as the report and presentation screenshot source.</li>
             </ol>

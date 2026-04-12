@@ -1,0 +1,8 @@
+numpy
+pandas
+matplotlib
+tqdm
+sentence-transformers
+rouge-score
+bert-score
+together

@@ -1,0 +1,9 @@
+{
+  "chunking": "section_aware",
+  "embedding_model": "BAAI/bge-base-en-v1.5",
+  "top_k": 5,
+  "query_limit": 120,
+  "generator_mode": "lexical",
+  "generator_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "faithfulness_mode": "lexical"
+}

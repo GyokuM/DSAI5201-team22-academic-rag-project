@@ -1,4 +1,4 @@
 Strategy,ROUGE-L_mean,ROUGE-L_std,BERTScore_F1_mean,BERTScore_F1_std,Faithfulness_mean,Faithfulness_std,Latency_s_mean,Latency_s_std,Hallucination_count,Too_Generic_count
-Naive,0.0004,0.0031,0.7747,0.0085,1.595,1.284,1.946,1.07,169,31
-Structured,0.0001,0.0018,0.7792,0.0049,1.125,0.687,1.51,0.838,194,6
-CoT,0.0003,0.0023,0.7812,0.0055,1.086,0.521,1.779,1.081,194,6
+Naive,0.2192,0.1661,0.8595,0.0386,4.7917,0.5147,0.0000,0.0000,0,0
+Structured,0.2077,0.1559,0.8545,0.0365,4.8083,0.4881,0.0000,0.0000,0,0
+CoT,0.1832,0.1364,0.8485,0.0329,4.3750,0.6200,0.0000,0.0000,0,0

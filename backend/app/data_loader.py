@@ -93,7 +93,6 @@ def load_retrieval_rows() -> list[dict]:
     return rows
 
 
-@lru_cache(maxsize=1)
 def load_generation_summary() -> list[dict]:
     if not GENERATION_SUMMARY_PATH.exists():
         return []
@@ -319,7 +318,7 @@ def build_dashboard_payload() -> dict:
         "generation_summary": generation_rows,
         "integration_notes": {
             "current_demo_backend": "Lexical retrieval fallback for local demo stability",
-            "part3_rerun_needed": True,
-            "part3_rerun_note": "Rerun evaluation against answers.json and export stable generation/evaluation results.",
+            "part3_rerun_needed": False,
+            "part3_rerun_note": "Part 3 has been rerun against answers.json. Next step: swap the lexical demo generator with a model-backed answer path.",
         },
     }
