@@ -121,12 +121,13 @@ export default function App() {
     }
   };
 
-  const handleAsk = async () => {
-    if (!selectedPaperId || !question.trim()) return;
+  const handleAsk = async (questionOverride) => {
+    const nextQuestion = (questionOverride ?? question).trim();
+    if (!selectedPaperId || !nextQuestion) return;
     setLoadingAsk(true);
     setError("");
     try {
-      const result = await api.askPaper(selectedPaperId, { question, top_k: topK });
+      const result = await api.askPaper(selectedPaperId, { question: nextQuestion, top_k: topK });
       setDemoResult(result);
     } catch (err) {
       setError(String(err));
@@ -176,11 +177,11 @@ export default function App() {
 
       {view === "demo" ? (
         <section className="panel-grid">
-          <div className="panel glass-panel control-panel">
-            <div className="panel-head">
-              <h2>Ask A Paper</h2>
-              <p>Current backend mode: lexical grounded summary for local stability.</p>
-            </div>
+            <div className="panel glass-panel control-panel">
+              <div className="panel-head">
+                <h2>Ask A Paper</h2>
+                <p>Current backend mode: {dashboard?.integration_notes?.current_demo_backend ?? "loading demo backend..."}</p>
+              </div>
 
             <label className="field-label">Find a paper</label>
             <div className="search-row">
@@ -217,20 +218,16 @@ export default function App() {
             ) : null}
 
             <label className="field-label">Sample benchmark questions</label>
-            <div className="sample-list">
-              {sampleQuestions.map((item) => (
-                <button
-                  key={item.query_id}
-                  className="sample-chip"
-                  onClick={() => {
-                    setQuestion(item.question);
-                    setDemoResult({
-                      answer: item.reference_answer,
-                      mode: "benchmark-reference-answer",
-                      retrieved_sections: []
-                    });
-                  }}
-                >
+              <div className="sample-list">
+                {sampleQuestions.map((item) => (
+                  <button
+                    key={item.query_id}
+                    className="sample-chip"
+                    onClick={() => {
+                      setQuestion(item.question);
+                      void handleAsk(item.question);
+                    }}
+                  >
                   {item.question}
                 </button>
               ))}
@@ -263,7 +260,7 @@ export default function App() {
           <div className="panel glass-panel result-panel">
             <div className="panel-head">
               <h2>Grounded Output</h2>
-              <p>Swap this with the rerun Part 3 generator when ready.</p>
+              <p>Embedding retrieval stays local; generation upgrades to Together when `TOGETHER_API_KEY` is set.</p>
             </div>
 
             {demoResult ? (

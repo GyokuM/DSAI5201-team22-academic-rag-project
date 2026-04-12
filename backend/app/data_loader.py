@@ -2,9 +2,25 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import re
 from functools import lru_cache
 from pathlib import Path
+
+try:
+    import numpy as np
+except Exception:  # pragma: no cover - optional dependency
+    np = None
+
+try:
+    from sentence_transformers import SentenceTransformer
+except Exception:  # pragma: no cover - optional dependency
+    SentenceTransformer = None
+
+try:
+    from together import Together
+except Exception:  # pragma: no cover - optional dependency
+    Together = None
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -20,6 +36,10 @@ QRELS_PATH = PART1_DIR / "data" / "open_ragbench" / "pdf" / "arxiv" / "qrels.jso
 ANSWERS_PATH = PART1_DIR / "data" / "open_ragbench" / "pdf" / "arxiv" / "answers.json"
 CHUNK_STATS_PATH = PART1_DIR / "data" / "processed" / "chunk_stats.json"
 GENERATION_SUMMARY_PATH = PART3_DIR / "evaluation_summary.csv"
+DEMO_CHUNK_PATH = PART1_DIR / "data" / "processed" / "chunks_section_aware.jsonl"
+DEMO_EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"
+DEMO_EMBEDDING_CACHE = PART2_DIR / "chunks_section_aware_BAAI_bge-base-en-v1.5_fp16.npy"
+DEMO_GENERATOR_MODEL = os.getenv("ACADEMIC_RAG_GENERATOR_MODEL", "Qwen/Qwen2.5-7B-Instruct-Turbo")
 
 TOP_K_FILES = {
     3: PART2_DIR / "top_K_3.csv",
@@ -35,6 +55,16 @@ SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[.!?])\s+")
 def _load_json(path: Path) -> dict:
     with open(path, "r", encoding="utf-8") as file:
         return json.load(file)
+
+
+def _load_jsonl(path: Path) -> list[dict]:
+    rows: list[dict] = []
+    with open(path, "r", encoding="utf-8") as file:
+        for line in file:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return rows
 
 
 def _clean_doc_id(doc_id: str) -> str:
@@ -68,6 +98,120 @@ def _pick_sentences(text: str, question_tokens: set[str], max_sentences: int = 2
     if chosen:
         return chosen
     return [sentences[0].strip()] if sentences and sentences[0].strip() else []
+
+
+def _looks_like_noise_chunk(text: str) -> bool:
+    stripped = text.strip()
+    if "....." in stripped:
+        return True
+    if stripped.startswith("# Appendices"):
+        return True
+    return False
+
+
+def _is_summary_question(question: str) -> bool:
+    question_lower = question.lower()
+    keywords = ["summary", "summarize", "main contribution", "main idea", "overview", "what does this paper do"]
+    return any(keyword in question_lower for keyword in keywords)
+
+
+def _answer_from_retrieved_chunks(question: str, chunks: list[dict], strategy: str = "Structured") -> str:
+    if _is_summary_question(question):
+        for source_index, chunk in enumerate(chunks, start=1):
+            if chunk.get("section_id") not in {-1, "abstract"}:
+                continue
+            sentences = [sentence.strip() for sentence in SENTENCE_SPLIT_PATTERN.split(chunk.get("text", "")) if len(sentence.strip()) >= 40]
+            if sentences:
+                selected = sentences[:2]
+                if strategy == "Naive":
+                    return " ".join(selected)
+                return " ".join(f"{sentence} [Source {source_index}]" for sentence in selected)
+
+    question_tokens = set(_tokenize(question))
+    candidates: list[tuple[float, str, int]] = []
+
+    for source_index, chunk in enumerate(chunks, start=1):
+        for sentence in SENTENCE_SPLIT_PATTERN.split(chunk.get("text", "")):
+            sentence = sentence.strip()
+            if len(sentence) < 45:
+                continue
+            score = _score_text(sentence, question_tokens)
+            candidates.append((score, sentence, source_index))
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    top_sentences = [(sentence, source_index) for score, sentence, source_index in candidates[:3] if score > 0]
+    if not top_sentences:
+        return "Insufficient information."
+
+    if strategy == "Naive":
+        return " ".join(sentence for sentence, _ in top_sentences[:2])
+
+    if strategy == "Structured":
+        return " ".join(f"{sentence} [Source {source_index}]" for sentence, source_index in top_sentences[:2])
+
+    evidence = "; ".join(f"Source {source_index}" for _, source_index in top_sentences[:2])
+    final = " ".join(f"{sentence} [Source {source_index}]" for sentence, source_index in top_sentences[:2])
+    return f"Relevant evidence comes from {evidence}. Final answer: {final}"
+
+
+def _demo_prompt(question: str, context: str) -> str:
+    return f"""You are an academic research assistant. Answer the user's question using ONLY the provided context.
+
+Rules:
+- Cite evidence with [Source N]
+- If the context is insufficient, say "Insufficient information"
+- Keep the answer concise and grounded
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+
+
+def _join_demo_context(chunks: list[dict], max_chars: int = 750) -> str:
+    parts = []
+    for index, chunk in enumerate(chunks, start=1):
+        label = chunk.get("label") or chunk.get("title") or f"Section {chunk.get('section_id')}"
+        text = (chunk.get("text") or "")[:max_chars]
+        parts.append(f"[Source {index} | {label}]\n{text}")
+    return "\n\n".join(parts)
+
+
+def _sanitize_embeddings(embeddings: np.ndarray) -> np.ndarray:
+    embeddings = np.nan_to_num(embeddings.astype(np.float32), nan=0.0, posinf=0.0, neginf=0.0)
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms = np.where(norms > 1e-12, norms, 1.0)
+    return embeddings / norms
+
+
+def _sanitize_query_embedding(query_embedding: np.ndarray) -> np.ndarray:
+    query_embedding = np.nan_to_num(query_embedding.astype(np.float32), nan=0.0, posinf=0.0, neginf=0.0)
+    norm = float(np.linalg.norm(query_embedding))
+    if norm <= 1e-12:
+        return query_embedding
+    return query_embedding / norm
+
+
+class DemoGenerator:
+    def __init__(self, model_name: str):
+        if Together is None:
+            raise RuntimeError("The 'together' package is not installed.")
+        api_key = os.getenv("TOGETHER_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("TOGETHER_API_KEY is not set.")
+        self.client = Together(api_key=api_key)
+        self.model_name = model_name
+
+    def generate(self, prompt: str) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=220,
+        )
+        return response.choices[0].message.content.strip()
 
 
 @lru_cache(maxsize=1)
@@ -232,6 +376,74 @@ def load_question_counts() -> dict[str, int]:
     return counts
 
 
+@lru_cache(maxsize=1)
+def load_demo_chunks() -> list[dict]:
+    if not DEMO_CHUNK_PATH.exists():
+        return []
+    rows = _load_jsonl(DEMO_CHUNK_PATH)
+    cleaned: list[dict] = []
+    for row in rows:
+        text = (row.get("text") or "").strip()
+        section_id = row.get("section_id")
+        label = "Abstract" if section_id in {-1, "abstract"} else f"Section {section_id}"
+        cleaned.append(
+            {
+                "chunk_id": row.get("chunk_id"),
+                "doc_id": row.get("doc_id"),
+                "section_id": section_id,
+                "label": label,
+                "title": row.get("title"),
+                "text": text,
+            }
+        )
+    return cleaned
+
+
+@lru_cache(maxsize=1)
+def load_demo_embedder() -> SentenceTransformer | None:
+    if SentenceTransformer is None:
+        return None
+    return SentenceTransformer(DEMO_EMBEDDING_MODEL)
+
+
+@lru_cache(maxsize=1)
+def load_demo_chunk_embeddings() -> np.ndarray | None:
+    if np is None:
+        return None
+    if DEMO_EMBEDDING_CACHE.exists():
+        return _sanitize_embeddings(np.load(DEMO_EMBEDDING_CACHE).astype(np.float32))
+
+    model = load_demo_embedder()
+    chunks = load_demo_chunks()
+    if model is None or not chunks:
+        return None
+
+    embeddings = model.encode(
+        [chunk["text"] for chunk in chunks],
+        batch_size=32,
+        show_progress_bar=False,
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+    ).astype(np.float32)
+    embeddings = _sanitize_embeddings(embeddings)
+    np.save(DEMO_EMBEDDING_CACHE, embeddings.astype(np.float16))
+    return embeddings
+
+
+@lru_cache(maxsize=1)
+def load_demo_generator() -> DemoGenerator | None:
+    try:
+        return DemoGenerator(DEMO_GENERATOR_MODEL)
+    except Exception:
+        return None
+
+
+def _demo_backend_status() -> str:
+    retrieval = "embedding retrieval" if load_demo_embedder() is not None else "lexical retrieval fallback"
+    generation = "Together model-backed generation" if load_demo_generator() is not None else "local grounded fallback generation"
+    return f"{retrieval} + {generation}"
+
+
 def _paper_sections_for_demo(paper_id: str) -> list[dict]:
     doc = load_paper(paper_id)
     sections = []
@@ -254,9 +466,67 @@ def _paper_sections_for_demo(paper_id: str) -> list[dict]:
     return sections
 
 
-def ask_paper(paper_id: str, question: str, top_k: int = 3) -> dict:
-    sections = _paper_sections_for_demo(paper_id)
+def _retrieve_demo_chunks(paper_id: str, question: str, top_k: int) -> tuple[list[dict], str]:
+    paper_base = _clean_doc_id(paper_id)
+    chunks = load_demo_chunks()
+    model = load_demo_embedder()
+    embeddings = load_demo_chunk_embeddings()
     question_tokens = set(_tokenize(question))
+    wants_summary = _is_summary_question(question)
+
+    if model is not None and embeddings is not None and len(chunks) == len(embeddings):
+        paper_indices = [
+            index
+            for index, chunk in enumerate(chunks)
+            if _clean_doc_id(str(chunk.get("doc_id", ""))) == paper_base and len((chunk.get("text") or "").strip()) >= 40
+        ]
+        non_noise_indices = [index for index in paper_indices if not _looks_like_noise_chunk(chunks[index]["text"])]
+        if non_noise_indices:
+            paper_indices = non_noise_indices
+        if paper_indices:
+            query_embedding = model.encode(
+                [question],
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            ).astype(np.float32)[0]
+            query_embedding = _sanitize_query_embedding(query_embedding)
+            paper_embeddings = embeddings[paper_indices]
+            scores = np.einsum("ij,j->i", paper_embeddings, query_embedding, dtype=np.float32)
+            scores = np.nan_to_num(scores, nan=-1.0, posinf=1.0, neginf=-1.0)
+            lexical_scores = np.array(
+                [_score_text(chunks[index]["text"], question_tokens) for index in paper_indices],
+                dtype=np.float32,
+            )
+            hybrid_scores = scores + (0.03 * lexical_scores)
+            sorted_local_indices = np.argsort(hybrid_scores)[::-1]
+
+            retrieved = []
+            seen_texts: set[str] = set()
+            if wants_summary:
+                for global_index in paper_indices:
+                    chunk = chunks[global_index]
+                    if chunk["section_id"] in {-1, "abstract"}:
+                        text_key = re.sub(r"\s+", " ", chunk["text"]).strip()[:220]
+                        seen_texts.add(text_key)
+                        abstract_chunk = dict(chunk)
+                        abstract_chunk["score"] = round(float(hybrid_scores[paper_indices.index(global_index)]) + 0.05, 4)
+                        retrieved.append(abstract_chunk)
+                        break
+            for local_index in sorted_local_indices:
+                global_index = paper_indices[int(local_index)]
+                chunk = dict(chunks[global_index])
+                text_key = re.sub(r"\s+", " ", chunk["text"]).strip()[:220]
+                if text_key in seen_texts:
+                    continue
+                seen_texts.add(text_key)
+                chunk["score"] = round(float(hybrid_scores[int(local_index)]), 4)
+                retrieved.append(chunk)
+                if len(retrieved) >= top_k:
+                    break
+            return retrieved, "embedding"
+
+    sections = _paper_sections_for_demo(paper_id)
     ranked = []
     for section in sections:
         score = _score_text(section["text"], question_tokens)
@@ -271,24 +541,35 @@ def ask_paper(paper_id: str, question: str, top_k: int = 3) -> dict:
             }
         )
     ranked.sort(key=lambda item: item["score"], reverse=True)
-    retrieved = ranked[:top_k] if ranked else sections[:top_k]
+    return (ranked[:top_k] if ranked else sections[:top_k]), "lexical"
 
-    answer_fragments = []
-    for index, section in enumerate(retrieved, start=1):
-        for sentence in _pick_sentences(section["text"], question_tokens):
-            answer_fragments.append(f"{sentence} [S{index}]")
-        if len(answer_fragments) >= 3:
-            break
 
-    answer = " ".join(answer_fragments[:3]).strip()
-    if not answer:
+def ask_paper(paper_id: str, question: str, top_k: int = 3) -> dict:
+    retrieved, retrieval_backend = _retrieve_demo_chunks(paper_id=paper_id, question=question, top_k=top_k)
+    context = _join_demo_context(retrieved)
+    generator = load_demo_generator()
+
+    if generator is not None:
+        try:
+            answer = generator.generate(_demo_prompt(question, context))
+            generation_backend = "together"
+        except Exception:
+            answer = _answer_from_retrieved_chunks(question, retrieved, strategy="Structured")
+            generation_backend = "local-fallback"
+    else:
+        answer = _answer_from_retrieved_chunks(question, retrieved, strategy="Structured")
+        generation_backend = "local-fallback"
+
+    if not answer.strip():
         answer = "I could not find enough direct evidence inside the selected paper to answer that question confidently."
 
     return {
-        "mode": "lexical-grounded-summary",
+        "mode": f"{retrieval_backend}-retrieval + {generation_backend}-generation",
         "paper_id": paper_id,
         "question": question,
         "answer": answer,
+        "retrieval_backend": retrieval_backend,
+        "generation_backend": generation_backend,
         "retrieved_sections": [
             {
                 "section_id": item["section_id"],
@@ -317,8 +598,8 @@ def build_dashboard_payload() -> dict:
         "best_retrieval_by_top_k": best_by_top_k,
         "generation_summary": generation_rows,
         "integration_notes": {
-            "current_demo_backend": "Lexical retrieval fallback for local demo stability",
+            "current_demo_backend": _demo_backend_status(),
             "part3_rerun_needed": False,
-            "part3_rerun_note": "Part 3 has been rerun against answers.json. Next step: swap the lexical demo generator with a model-backed answer path.",
+            "part3_rerun_note": "Part 3 has been rerun against answers.json. Demo now uses embedding retrieval and upgrades to Together generation when TOGETHER_API_KEY is available.",
         },
     }
