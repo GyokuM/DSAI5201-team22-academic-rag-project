@@ -1,18 +1,18 @@
-# Data Assets Policy
+# Data Assets Note
 
-This repository keeps the project code, notebooks, summaries, CSV results, plots, and integration app in Git.
+This repository includes the code, notebooks, summary tables, plots, and application components required for the final DSAI5201 project submission.
 
-Large local-only assets are intentionally not tracked in normal Git because they are too large for a standard GitHub repo:
+Some large experimental assets are intentionally excluded from standard Git tracking because they are too large for a normal GitHub repository or are better treated as local-only reproducible artifacts. These excluded assets include:
 
 - `materials/project_part1/data/open_ragbench/`
 - `materials/project_part1/data/processed/*.jsonl`
 - `materials/project_part1/data/rawpdf/`
 - `materials/project_part2/*.npy`
 
-Why:
+These files are omitted for the following reasons:
 
-- several files exceed GitHub's 100 MB per-file limit
-- pushing them would fail on a normal repository
-- they are reproducible or local experiment artifacts rather than code deliverables
+- several exceed GitHub's per-file size limit
+- some are generated artifacts rather than source code
+- local cache files do not need to be versioned in the final submission repository
 
-If you later want to version those files, use Git LFS instead of normal Git.
+If long-term versioning of these assets is required in the future, Git LFS or a separate data storage workflow should be used.

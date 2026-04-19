@@ -1,52 +1,38 @@
-# Git Roadmap
+# Repository Development Record
 
-Recommended commit sequence for showing your integration work clearly:
+This note summarizes the main development stages used to assemble the final integrated repository.
 
-## Commit 1
+## Stage 1: Material Consolidation
 
-Add the merged source materials only:
+The first stage imported the three project workstreams into a single repository structure. This preserved the original experimental outputs while allowing the project to move forward in one shared workspace.
 
-- `.gitignore`
-- `materials/project_part1/`
-- `materials/project_part2/`
-- `materials/Project_part_3/`
-- `materials/README.md`
-- `docs/data-assets.md`
+Main contents introduced at this stage:
 
-Suggested message:
+- merged source materials
+- tracked documentation describing data assets
+- repository rules for excluding oversized local artifacts
 
-```bash
-git commit -m "chore: import merged project materials from three workstreams"
-```
+## Stage 2: Integrated Application Shell
 
-## Commit 2
+The second stage added the unified application structure used for the final deliverable.
 
-Add the integrated app shell:
+Main contents introduced at this stage:
 
-- `backend/`
-- `frontend/`
-- root `README.md`
-- `docs/git-roadmap.md`
+- FastAPI backend
+- React frontend
+- top-level project documentation
+- integrated dashboard and demo structure
 
-Suggested message:
+## Stage 3: Evaluation Cleanup and Demo Completion
 
-```bash
-git commit -m "feat: add integrated academic rag studio app"
-```
+The final stage focused on turning the repository into a presentation-ready submission.
 
-## Commit 3+
+Main work at this stage included:
 
-Continue with incremental work:
+- rerunning and cleaning Part 3 evaluation
+- improving the frontend interface
+- adding upload-PDF support and session history
+- enabling model-backed generation through an OpenAI-compatible endpoint
+- preparing the final report and presentation assets
 
-- rerun and fix Part 3 evaluation
-- replace fallback demo answer generation
-- improve frontend polish
-- add upload PDF if needed
-
-Suggested style:
-
-```bash
-git commit -m "feat: rerun part3 evaluation against answers.json"
-git commit -m "feat: connect model-backed generation to demo"
-git commit -m "refactor: reorganize backend loaders and results endpoints"
-```
+This file is retained as a concise repository history note for the final project package.
