@@ -268,8 +268,8 @@ export default function App() {
           <p className="hero-kicker">DSAI5201 · Final Integrated Demonstration</p>
           <h1>Academic RAG Studio</h1>
           <p className="hero-copy">
-            A presentation-ready system that unifies data processing, retrieval experiments, prompt evaluation,
-            and a live paper question-answering demo into one polished interface.
+            An integrated system that unifies data processing, retrieval experiments, prompt evaluation,
+            and academic paper question answering within a single interface.
           </p>
         </div>
 
@@ -406,7 +406,7 @@ export default function App() {
                     <div>
                       <span className="eyebrow">Upload PDF</span>
                       <strong>Single text-based PDF</strong>
-                      <p>Upload one PDF for temporary retrieval and question answering during this session.</p>
+                      <p>Upload one PDF for session-based retrieval and question answering.</p>
                     </div>
                     <label className="upload-button">
                       {uploadingPdf ? "Uploading..." : "Choose PDF"}
@@ -434,7 +434,7 @@ export default function App() {
                     <div className="empty-state compact-empty">
                       <div>
                         <span className="eyebrow">No PDF Uploaded</span>
-                        <p>Upload a text-based PDF to start a temporary document question-answering session.</p>
+                        <p>Upload a text-based PDF to start a document question-answering session.</p>
                       </div>
                     </div>
                   )}
@@ -717,7 +717,7 @@ export default function App() {
               <div className="timeline-card">
                 <span className="eyebrow">Part 3</span>
                 <h3>Generation Evaluation</h3>
-                <p>Prompt strategy rerun against answers.json with refreshed summary outputs and presentation-ready figures.</p>
+                <p>Prompt strategy rerun against answers.json with refreshed summary outputs and finalized result figures.</p>
               </div>
               <div className="timeline-card emphasis-card">
                 <span className="eyebrow">Integration</span>

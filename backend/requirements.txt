@@ -4,3 +4,6 @@ pandas
 numpy
 sentence-transformers
 together
+openai
+pypdf
+python-multipart
